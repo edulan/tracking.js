@@ -245,7 +245,7 @@
 
     var requestId;
     var requestAnimationFrame_ = function() {
-      requestId = window.requestAnimationFrame(function() {
+      requestId = window.setTimeout(function() {
         if (element.readyState === element.HAVE_ENOUGH_DATA) {
           try {
             // Firefox v~30.0 gets confused with the video readyState firing an
@@ -256,12 +256,12 @@
           tracking.trackCanvasInternal_(canvas, tracker);
         }
         requestAnimationFrame_();
-      });
+      }, 250);
     };
 
     var task = new tracking.TrackerTask(tracker);
     task.on('stop', function() {
-      window.cancelAnimationFrame(requestId);
+      window.clearTimeout(requestId);
     });
     task.on('run', function() {
       requestAnimationFrame_();
@@ -280,4 +280,4 @@
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia ||
     navigator.mozGetUserMedia || navigator.msGetUserMedia;
   }
-}(window));
+}(this));

@@ -109,21 +109,64 @@
    */
   tracking.ObjectTracker.prototype.track = function(pixels, width, height) {
     var self = this;
+
+    var operations = [this.getOperation()];
+
+    var deferreds = operations.map(function(operation) {
+      return operation.call(
+        pixels,
+        width,
+        height,
+        self.getInitialScale(),
+        self.getScaleFactor(),
+        self.getStepSize(),
+        self.getEdgesDensity()
+      );
+    });
+
+    // window.Promise.all(operations, function(results) {
+    deferreds[0].then(function(results) {
+      self.emit('track', {data: results});
+    });
+  };
+
+  tracking.ObjectTracker.prototype.getOperation = function() {
+    if (this.operation) {
+      return this.operation;
+    }
+
     var classifiers = this.getClassifiers();
 
     if (!classifiers) {
       throw new Error('Object classifier not specified, try `new tracking.ObjectTracker("face")`.');
     }
 
-    var results = [];
+    this.operation = operative({
+      data: {
+        classifier: classifiers[0]
+      },
+      call: function(pixels, width, height, initialScale, scaleFactor, stepSize, edgesDensity) {
+        var deferred = this.deferred();
+        var classifier = this.data.classifier;
 
-    classifiers.forEach(function(classifier) {
-      results = results.concat(tracking.ViolaJones.detect(pixels, width, height, self.getInitialScale(), self.getScaleFactor(), self.getStepSize(), self.getEdgesDensity(), classifier));
-    });
+        var result = tracking.ViolaJones.detect(
+          pixels,
+          width,
+          height,
+          initialScale,
+          scaleFactor,
+          stepSize,
+          edgesDensity,
+          classifier
+        );
 
-    this.emit('track', {
-      data: results
-    });
+        deferred.fulfill(result);
+      }
+    }, [
+      'http://localhost:8000/build/tracking.js'
+    ]);
+
+    return this.operation;
   };
 
   /**
