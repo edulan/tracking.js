@@ -110,10 +110,10 @@
   tracking.ObjectTracker.prototype.track = function(pixels, width, height) {
     var self = this;
 
-    var operations = [this.getOperation()];
+    var operations = this.getOperations();
 
-    var deferreds = operations.map(function(operation) {
-      return operation.call(
+    operations.forEach(function(operation) {
+      operation.call(
         pixels,
         width,
         height,
@@ -121,18 +121,15 @@
         self.getScaleFactor(),
         self.getStepSize(),
         self.getEdgesDensity()
-      );
-    });
-
-    // window.Promise.all(operations, function(results) {
-    deferreds[0].then(function(results) {
-      self.emit('track', {data: results});
+      ).then(function(results) {
+        self.emit('track', {data: results});
+      });
     });
   };
 
-  tracking.ObjectTracker.prototype.getOperation = function() {
-    if (this.operation) {
-      return this.operation;
+  tracking.ObjectTracker.prototype.getOperations = function() {
+    if (this.operations) {
+      return this.operations;
     }
 
     var classifiers = this.getClassifiers();
@@ -141,32 +138,34 @@
       throw new Error('Object classifier not specified, try `new tracking.ObjectTracker("face")`.');
     }
 
-    this.operation = operative({
-      data: {
-        classifier: classifiers[0]
-      },
-      call: function(pixels, width, height, initialScale, scaleFactor, stepSize, edgesDensity) {
-        var deferred = this.deferred();
-        var classifier = this.data.classifier;
+    this.operations = classifiers.map(function(classifier) {
+      return operative({
+        data: {
+          classifier: classifier
+        },
+        call: function(pixels, width, height, initialScale, scaleFactor, stepSize, edgesDensity) {
+          var deferred = this.deferred();
+          var classifier = this.data.classifier;
 
-        var result = tracking.ViolaJones.detect(
-          pixels,
-          width,
-          height,
-          initialScale,
-          scaleFactor,
-          stepSize,
-          edgesDensity,
-          classifier
-        );
+          var result = tracking.ViolaJones.detect(
+            pixels,
+            width,
+            height,
+            initialScale,
+            scaleFactor,
+            stepSize,
+            edgesDensity,
+            classifier
+          );
 
-        deferred.fulfill(result);
-      }
-    }, [
-      'http://localhost:8000/build/tracking.js'
-    ]);
+          deferred.resolve(result);
+        }
+      }, [
+        'http://localhost:8000/build/tracking.js'
+      ]);
+    });
 
-    return this.operation;
+    return this.operations;
   };
 
   /**
